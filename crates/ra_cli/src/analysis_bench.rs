@@ -3,7 +3,7 @@ use std::{
     time::Instant,
 };
 
-use ra_db::{SourceDatabase, salsa::Database};
+use ra_db::{SourceDatabase, salsa::{Database, Durability}};
 use ra_ide_api::{AnalysisHost, Analysis, LineCol, FilePosition};
 
 use crate::Result;
@@ -84,7 +84,14 @@ fn do_work<F: Fn(&Analysis) -> T, T>(host: &AnalysisHost, work: F) -> T {
     {
         let start = Instant::now();
         eprint!("trivial change: ");
-        host.raw_database().salsa_runtime().next_revision();
+        host.raw_database().salsa_runtime().synthetic_write(Durability::LOW);
+        work(&host.analysis());
+        eprintln!("{:?}", start.elapsed());
+    }
+    {
+        let start = Instant::now();
+        eprint!("const change:   ");
+        host.raw_database().salsa_runtime().synthetic_write(Durability::HIGH);
         let res = work(&host.analysis());
         eprintln!("{:?}", start.elapsed());
         res
